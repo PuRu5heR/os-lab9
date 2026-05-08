@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> | Магазин детских игрушек</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-menu a {
+            color: white;
+            text-decoration: none;
+            font-size: 1.1em;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.3s;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        .nav-menu a:hover {
+            background-color: #1abc9c;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            background-color: white;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #d19916;
+            padding-bottom: 10px;
+        }
+
+        .toys-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .toys-table th, .toys-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .toys-table th {
+            background-color: #d19916;
+            color: white;
+        }
+
+        .toys-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .button-group {
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+
+        .btn-add {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-update {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-info {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-list {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .btn-json {
+            background-color: #9b59b6;
+            color: white;
+        }
+
+        .btn-download {
+            background-color: #1abc9c;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.85;
+        }
+
+        .info-panel {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .footer {
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            margin-top: auto;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Магазин детских игрушек</h1>
+    <div class="nav-menu">
+        <a href="/">О магазине</a>
+        <a href="/catalog">Каталог игрушек</a>
+        <a href="/chat">Чат</a>
+    </div>
+</div>
+
+<div class="content">
+    <%- body %>
+</div>
+
+<div class="footer">
+    &copy; 2026 Магазин детских игрушек. Все права защищены.
+</div>
+
+<script>
+    function showInfoMessage(text) {
+        const infoDiv = document.getElementById("info-message");
+        if (infoDiv) {
+            infoDiv.innerHTML = text.replace(/\n/g, '<br>');
+        }
+    }
+</script>
+</body>
+</html>

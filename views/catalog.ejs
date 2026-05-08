@@ -1,0 +1,469 @@
+<h2>Каталог игрушек</h2>
+<p>Здесь вы можете управлять списком игрушек: добавлять, удалять, смотреть описание.</p>
+
+<div class="button-group">
+    <button class="btn-add" onclick="OnAddValueButtonClick()">Добавить игрушку</button>
+    <button class="btn-update" onclick="OnUpdateValueButtonClick()">Обновить игрушку</button>
+    <button class="btn-delete" onclick="OnDeleteValueButtonClick()">Удалить игрушку</button>
+    <button class="btn-info" onclick="getToyById()">Найти игрушку</button>
+    <button class="btn-list" onclick="loadToysFromServer()">Обновить таблицу</button>
+    <button class="btn-download" onclick="downloadToysJSON()">Скачать JSON файл</button>
+</div>
+
+<div class="search-sort-panel">
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Поиск по названию..." onkeyup="filterAndRender()">
+        <button onclick="clearSearch()" class="btn-clear">Очистить</button>
+    </div>
+    <div class="sort-box">
+        <label>Сортировать по названию:</label>
+        <button onclick="setSortOrder('asc')" class="btn-sort">А → Я</button>
+        <button onclick="setSortOrder('desc')" class="btn-sort">Я → А</button>
+        <button onclick="setSortOrder('none')" class="btn-sort">Без сортировки</button>
+    </div>
+</div>
+
+<table class="toys-table" id="toys-table">
+    <thead>
+        <tr><th>Название игрушки</th><th>Описание ухода / особенности</th></tr>
+    </thead>
+    <tbody id="toys-table-body">
+        <tr><td colspan="2">Загрузка...</td></tr>
+    </tbody>
+</table>
+
+<div class="pagination-controls" id="pagination-controls">
+    <button onclick="goToPage(1)" class="btn-page" id="btn-first">Первая</button>
+    <button onclick="goToPage(currentPage - 1)" class="btn-page" id="btn-prev">Назад</button>
+    <span class="page-info" id="page-info">Страница 1 из 1</span>
+    <button onclick="goToPage(currentPage + 1)" class="btn-page" id="btn-next">Вперед</button>
+    <button onclick="goToPage(2000000000)" class="btn-page" id="btn-last">Последняя</button>
+</div>
+
+<div id="info-message" class="info-panel">
+</div>
+
+<style>
+    .search-sort-panel {
+        background-color: #f0f0f0;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-box {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex: 2;
+    }
+
+    .search-box input {
+        padding: 8px 12px;
+        font-size: 14px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .sort-box {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .sort-box label {
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .btn-clear {
+        background-color: #95a5a6;
+        color: white;
+        padding: 8px 16px;
+    }
+
+    .btn-sort {
+        background-color: #3498db;
+        color: white;
+        padding: 8px 16px;
+    }
+
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        flex-wrap: wrap;
+    }
+
+    .btn-page {
+        background-color: #2c3e50;
+        color: white;
+        padding: 8px 16px;
+    }
+
+    .btn-page:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .page-info {
+        font-weight: bold;
+        color: #2c3e50;
+        min-width: 150px;
+        text-align: center;
+    }
+
+    .stats-info {
+        color: #7f8c8d;
+        font-size: 14px;
+        margin-top: 10px;
+        text-align: center;
+    }
+</style>
+
+<script>
+    let currentToys = {};
+    let filteredToys = {};
+    let currentSort = 'none';
+    let currentPage = 1;
+    let itemsPerPage = 5;
+    let currentSearchTerm = '';
+
+    function showInfoMessage(text) {
+        const infoDiv = document.getElementById("info-message");
+        if (infoDiv) {
+            infoDiv.innerHTML = text.replace(/\n/g, '<br>');
+        } else {
+            console.log("Info message:", text);
+        }
+    }
+
+    async function loadToysFromServer() {
+        try {
+            showInfoMessage("Загрузка данных с сервера...");
+            const response = await fetch('/api/toys');
+            if (!response.ok) throw new Error('Ошибка загрузки данных');
+            currentToys = await response.json();
+            currentPage = 1;
+            currentSearchTerm = '';
+            document.getElementById('searchInput').value = '';
+            applyFiltersAndRender();
+            showInfoMessage(`Данные загружены! Найдено ${Object.keys(currentToys).length} игрушек.`);
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showInfoMessage('Ошибка загрузки данных: ' + error.message);
+        }
+    }
+
+    function applyFiltersAndRender() {
+        let filtered = {};
+
+        if (currentSearchTerm === '') {
+            filtered = { ...currentToys };
+        } else {
+            const searchLower = currentSearchTerm.toLowerCase();
+            for (const [name, description] of Object.entries(currentToys)) {
+                if (name.toLowerCase().includes(searchLower)) {
+                    filtered[name] = description;
+                }
+            }
+        }
+
+        const entries = Object.entries(filtered);
+
+        if (currentSort === 'asc') {
+            entries.sort((a, b) => a[0].localeCompare(b[0], 'ru'));
+        } else if (currentSort === 'desc') {
+            entries.sort((a, b) => b[0].localeCompare(a[0], 'ru'));
+        }
+
+        filteredToys = {};
+        for (const [key, value] of entries) {
+            filteredToys[key] = value;
+        }
+
+        renderWithPagination();
+    }
+
+    function renderWithPagination() {
+        const filteredKeys = Object.keys(filteredToys);
+        const totalFiltered = filteredKeys.length;
+
+        const totalPages = Math.ceil(totalFiltered / itemsPerPage);
+
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
+        }
+        if (currentPage < 1) {
+            currentPage = 1;
+        }
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageKeys = filteredKeys.slice(startIndex, endIndex);
+
+        renderToysTable(pageKeys);
+
+        updatePaginationControls(totalFiltered, totalPages);
+
+        const searchInfo = currentSearchTerm ? ` (поиск: "${currentSearchTerm}")` : '';
+        const sortInfo = currentSort !== 'none' ? `, сортировка: ${currentSort === 'asc' ? 'А→Я' : 'Я→А'}` : '';
+        showInfoMessage(`Показано ${pageKeys.length} из ${totalFiltered} игрушек${searchInfo}${sortInfo}`);
+    }
+
+    function renderToysTable(keys) {
+        const tbody = document.getElementById("toys-table-body");
+        if (!tbody) return;
+
+        if (keys.length === 0) {
+            let message = currentSearchTerm
+                ? `Ничего не найдено по запросу "${currentSearchTerm}"`
+                : "Каталог пуст. Добавьте первую игрушку!";
+            tbody.innerHTML = `<tr><td colspan="2" style="text-align: center;">${message}</td></tr>`;
+            return;
+        }
+
+        let html = "";
+        for (let key of keys) {
+            html += `<tr>
+                        <td><strong>${escapeHtml(key)}</strong></td>
+                        <td>${escapeHtml(currentToys[key])}</td>
+                     </tr>`;
+        }
+        tbody.innerHTML = html;
+    }
+
+    function updatePaginationControls(totalItems, totalPages) {
+        const pageInfo = document.getElementById("page-info");
+        const btnFirst = document.getElementById("btn-first");
+        const btnPrev = document.getElementById("btn-prev");
+        const btnNext = document.getElementById("btn-next");
+        const btnLast = document.getElementById("btn-last");
+
+        if (pageInfo) {
+            if (totalItems === 0) {
+                pageInfo.innerHTML = "Страница 0 из 0";
+            } else {
+                pageInfo.innerHTML = `Страница ${currentPage} из ${totalPages} (всего: ${totalItems})`;
+            }
+        }
+
+        if (btnFirst) btnFirst.disabled = currentPage === 1 || totalItems === 0;
+        if (btnPrev) btnPrev.disabled = currentPage === 1 || totalItems === 0;
+        if (btnNext) btnNext.disabled = currentPage === totalPages || totalItems === 0;
+        if (btnLast) btnLast.disabled = currentPage === totalPages || totalItems === 0;
+    }
+
+    function goToPage(page) {
+        currentPage = page;
+        renderWithPagination();
+    }
+
+    function filterAndRender() {
+        const searchInput = document.getElementById("searchInput");
+        currentSearchTerm = searchInput.value;
+        currentPage = 1;
+        applyFiltersAndRender();
+    }
+
+    function clearSearch() {
+        document.getElementById("searchInput").value = "";
+        currentSearchTerm = "";
+        currentPage = 1;
+        applyFiltersAndRender();
+    }
+
+    function setSortOrder(order) {
+        currentSort = order;
+        currentPage = 1;
+        applyFiltersAndRender();
+    }
+
+    async function getToyById() {
+        let toyName = prompt("Введите название игрушки для получения информации:");
+        if (!toyName || toyName.trim() === "") {
+            showInfoMessage("Запрос отменён.");
+            return;
+        }
+
+        const name = toyName.trim();
+
+        try {
+            showInfoMessage(`Поиск игрушки "${name}"...`);
+            const response = await fetch(`/api/toys/${encodeURIComponent(name)}`);
+
+            if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('Игрушка не найдена');
+                }
+                throw new Error('Ошибка получения данных');
+            }
+
+            const toy = await response.json();
+            showInfoMessage(`Найдено:\nНазвание: ${toy.id}\nОписание: ${toy.description}`);
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showInfoMessage(`${error.message}`);
+        }
+    }
+
+    async function OnAddValueButtonClick() {
+        let toyName = prompt("Введите название игрушки:");
+        if (!toyName || toyName.trim() === "") {
+            showInfoMessage("Добавление отменено: название не введено.");
+            return;
+        }
+
+        let toyDescription = prompt("Введите описание игрушки (уход, особенности):");
+        if (!toyDescription || toyDescription.trim() === "") {
+            showInfoMessage("Добавление отменено: описание не введено.");
+            return;
+        }
+
+        const name = toyName.trim();
+        const description = toyDescription.trim();
+
+        try {
+            showInfoMessage("Сохранение на сервер...");
+            const response = await fetch('/api/toys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: name, value: description })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Ошибка сохранения');
+            }
+
+            const result = await response.json();
+            currentToys[name] = description;
+            currentPage = 1;
+            applyFiltersAndRender();
+            showInfoMessage(`Игрушка "${name}" успешно добавлена!`);
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showInfoMessage(`Ошибка при добавлении: ${error.message}`);
+        }
+    }
+
+    async function OnUpdateValueButtonClick() {
+        let toyName = prompt("Введите название игрушки для обновления:");
+        if (!toyName || toyName.trim() === "") {
+            showInfoMessage("Обновление отменено.");
+            return;
+        }
+
+        const name = toyName.trim();
+
+        if (!currentToys[name]) {
+            showInfoMessage(`Игрушка "${name}" не найдена.`);
+            return;
+        }
+
+        let newDescription = prompt(`Введите новое описание для "${name}":`, currentToys[name]);
+        if (!newDescription || newDescription.trim() === "") {
+            showInfoMessage("Обновление отменено: описание не введено.");
+            return;
+        }
+
+        try {
+            showInfoMessage("Обновление на сервере...");
+            const response = await fetch(`/api/toys/${encodeURIComponent(name)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: newDescription.trim() })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Ошибка обновления');
+            }
+
+            currentToys[name] = newDescription.trim();
+            applyFiltersAndRender();
+            showInfoMessage(`Игрушка "${name}" успешно обновлена!`);
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showInfoMessage(`Ошибка при обновлении: ${error.message}`);
+        }
+    }
+
+    async function OnDeleteValueButtonClick() {
+        let toyName = prompt("Введите название игрушки для удаления:");
+        if (!toyName || toyName.trim() === "") {
+            showInfoMessage("Удаление отменено.");
+            return;
+        }
+
+        const name = toyName.trim();
+
+        if (!currentToys[name]) {
+            showInfoMessage(`Игрушка "${name}" не найдена.`);
+            return;
+        }
+
+        const confirmDelete = confirm(`Вы уверены, что хотите удалить игрушку "${name}"?`);
+        if (!confirmDelete) {
+            showInfoMessage("Удаление отменено.");
+            return;
+        }
+
+        try {
+            showInfoMessage("Удаление с сервера...");
+            const response = await fetch(`/api/toys/${encodeURIComponent(name)}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Ошибка удаления');
+            }
+
+            delete currentToys[name];
+            currentPage = 1;
+            applyFiltersAndRender();
+            showInfoMessage(`Игрушка "${name}" удалена.`);
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showInfoMessage(`Ошибка при удалении: ${error.message}`);
+        }
+    }
+
+    function downloadToysJSON() {
+        try {
+            window.location.href = '/download-toys';
+            showInfoMessage('Начинается скачивание файла toys_catalog.json...');
+        } catch (error) {
+            console.error('Ошибка:', error);
+            showInfoMessage('Ошибка при скачивании файла: ' + error.message);
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM загружен, загружаем данные...");
+        loadToysFromServer();
+    });
+</script>
