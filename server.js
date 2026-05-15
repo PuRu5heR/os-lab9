@@ -26,31 +26,10 @@ if (!fs.existsSync(DATA_FILE)) {
     fs.writeFileSync(DATA_FILE, JSON.stringify({}, null, 4), 'utf8');
 }
 
-const MAX_HISTORY = 50;
-let messageHistory = [];
-
-
-function addToHistory(username, message, userId) {
-    const newMessage = {
-        id: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        username: username,
-        message: message,
-        timestamp: new Date().toISOString(),
-        userId: userId
-    };
-
-    messageHistory.push(newMessage);
-
-    if (messageHistory.length > MAX_HISTORY) {
-        messageHistory = messageHistory.slice(-MAX_HISTORY);
-    }
-
-    return newMessage;
-}
-
-function getHistory() {
-    return messageHistory;
-}
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 5;
+const DEFAULT_SORT = 'none';
+const VALID_SORT_VALUES = ['none', 'asc', 'desc'];
 
 function readToysData() {
     try {
@@ -111,8 +90,9 @@ app.get('/chat', (req, res) => {
 });
 
 app.get('/api/toys', (req, res) => {
-    const toys = readToysData();
-    res.json(toys);
+    const { page, limit, sort, search } = req.query;
+    const result = getToysWithPagination({ page, limit, sort, search });
+    res.json(result);
 });
 
 app.get('/api/toys/:id', (req, res) => {
@@ -197,6 +177,84 @@ app.get('/download-toys', (req, res) => {
     });
 });
 
+
+/**
+ * Получение игрушек с фильтрацией, сортировкой и пагинацией
+ * @param {Object} params - параметры запроса
+ * @param {number} params.page - номер страницы (1-indexed)
+ * @param {number} params.limit - количество записей на странице
+ * @param {string} params.sort - тип сортировки ('none', 'asc', 'desc')
+ * @param {string} params.search - поисковый запрос
+ * @returns {Object} - объект с данными и мета-информацией
+ */
+function getToysWithPagination({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT, sort = DEFAULT_SORT, search = '' }) {
+    const pageNum = Math.max(1, parseInt(page) || DEFAULT_PAGE);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || DEFAULT_LIMIT));
+    const sortType = VALID_SORT_VALUES.includes(sort) ? sort : DEFAULT_SORT;
+    const searchTerm = (search || '').trim().toLowerCase();
+
+    const allToys = readToysData();
+    const entries = Object.entries(allToys);
+
+    let filteredEntries = entries;
+    if (searchTerm) {
+        filteredEntries = entries.filter(([name, description]) => {
+            return name.toLowerCase().includes(searchTerm);
+        });
+    }
+
+    if (sortType === 'asc') {
+        filteredEntries.sort((a, b) => a[0].localeCompare(b[0], 'ru'));
+    } else if (sortType === 'desc') {
+        filteredEntries.sort((a, b) => b[0].localeCompare(a[0], 'ru'));
+    }
+
+    const totalItems = filteredEntries.length;
+
+    const totalPages = Math.ceil(totalItems / limitNum);
+    const currentPage = Math.min(pageNum, totalPages > 0 ? totalPages : 1);
+    const startIndex = (currentPage - 1) * limitNum;
+    const endIndex = startIndex + limitNum;
+    const paginatedEntries = filteredEntries.slice(startIndex, endIndex);
+
+    const items = {};
+    for (const [key, value] of paginatedEntries) {
+        items[key] = value;
+    }
+
+    return {
+        items: items,
+        totalItems: totalItems,
+        totalPages: totalPages,
+        currentPage: currentPage,
+        limit: limitNum,
+        sort: sortType,
+        search: searchTerm
+    };
+}
+
+const MAX_HISTORY = 50;
+let messageHistory = [];
+
+function addToHistory(username, message, userId) {
+    const newMessage = {
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        username: username,
+        message: message,
+        timestamp: new Date().toISOString(),
+        userId: userId
+    };
+    messageHistory.push(newMessage);
+    if (messageHistory.length > MAX_HISTORY) {
+        messageHistory = messageHistory.slice(-MAX_HISTORY);
+    }
+    return newMessage;
+}
+
+function getHistory() {
+    return messageHistory;
+}
+
 const activeUsers = {};
 
 io.on('connection', (socket) => {
@@ -252,5 +310,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`Сервер запущен на http://localhost:3000`);
+    console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
